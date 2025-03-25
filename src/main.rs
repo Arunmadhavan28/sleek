@@ -1,116 +1,151 @@
-//#use clap::{Arg, Command};
-use clap::Command;
-use colored::*;
 use std::collections::HashMap;
-//use std::fs::{self, OpenOptions};
-use std::fs::OpenOptions;
-use std::io::{Read, Write};
-use std::process::Command as ProcessCommand;
-use serde::{Deserialize, Serialize};
-use toml;
-use chrono::Utc;
+use std::fs::{self, File};
+use std::io::{BufReader};
+use std::process::Command;
+use clap::{ Command as ClapCommand};
+use colored::*;
+use std::ffi::OsString;
 
-#[derive(Serialize, Deserialize, Default)]
-struct Stats {
-    command_counts: HashMap<String, u32>,
-    command_times: HashMap<String, Vec<String>>, // Stores timestamps
-    execution_times: HashMap<String, Vec<u128>>, // Stores execution duration in ms
+
+const STATS_FILE: &str = "command_stats.json";
+//const HISTORY_FILE: &str = "command_history.log";
+
+/// Load command statistics from `command_stats.json`
+fn load_stats() -> HashMap<String, u32> {
+    let mut stats = HashMap::new();
+
+    if let Ok(file) = File::open(STATS_FILE) {
+        let reader = BufReader::new(file);
+        match serde_json::from_reader(reader) {
+            Ok(data) => stats = data,
+            Err(e) => eprintln!("❌ Failed to parse {}: {}", STATS_FILE, e),
+        }
+    }
+
+    stats
 }
 
-const LOG_FILE: &str = "~/.cargo_sleek_stats.toml";
-
-fn load_stats() -> Stats {
-    if let Ok(mut file) = OpenOptions::new().read(true).open(LOG_FILE) {
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).ok();
-        toml::from_str(&contents).unwrap_or_default()
+/// Save command statistics to `command_stats.json`
+fn save_stats(stats: &HashMap<String, u32>) {
+    if let Ok(json) = serde_json::to_string_pretty(stats) {
+        if let Err(e) = fs::write(STATS_FILE, json) {
+            eprintln!("❌ Failed to write to {}: {}", STATS_FILE, e);
+        }
     } else {
-        Stats::default()
+        eprintln!("❌ Failed to serialize stats.");
     }
 }
 
-fn save_stats(stats: &Stats) {
-    if let Ok(mut file) = OpenOptions::new().write(true).create(true).open(LOG_FILE) {
-        file.write_all(toml::to_string(stats).unwrap().as_bytes()).ok();
-    }
-}
-
-fn track_command(cmd: &str, duration: u128) {
+/// Track and log executed commands
+fn track_command(command: &str) {
     let mut stats = load_stats();
-    let counter = stats.command_counts.entry(cmd.to_string()).or_insert(0);
-    *counter += 1;
-    stats.command_times.entry(cmd.to_string()).or_insert_with(Vec::new).push(Utc::now().to_rfc3339());
-    stats.execution_times.entry(cmd.to_string()).or_insert_with(Vec::new).push(duration);
+
+    let count = stats.entry(command.to_string()).or_insert(0);
+    *count += 1;
+
     save_stats(&stats);
 }
 
+/// Show the most frequently used Cargo commands
 fn show_stats() {
     let stats = load_stats();
+
+    if stats.is_empty() {
+        println!("{}", "📊 No command usage data available.".yellow());
+        return;
+    }
+
     println!("{}", "📊 Most Used Cargo Commands:".bold().cyan());
-    let mut sorted: Vec<_> = stats.command_counts.iter().collect();
-    sorted.sort_by(|a, b| b.1.cmp(a.1));
-    for (i, (cmd, count)) in sorted.iter().enumerate() {
-        println!("{} {} ({} times)", (i + 1).to_string().yellow(), cmd.green(), count);
+
+    let mut sorted_stats: Vec<(&String, &u32)> = stats.iter().collect();
+    sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
+
+    for (i, (command, count)) in sorted_stats.iter().enumerate() {
+        println!("{}️⃣ {} ({} times)", i + 1, command.green().bold(), count);
     }
 }
 
-fn show_log() {
-    let stats = load_stats();
-    println!("{}", "📂 Cargo Command Log:".bold().cyan());
-    for (cmd, times) in stats.command_times.iter() {
-        println!("{}:", cmd.green());
-        for time in times.iter().take(5) {
-            println!("  📌 {}", time.yellow());
-        }
-    }
-}
-
+/// Check for unused dependencies in Cargo.toml
 fn check_unused_deps() {
-    println!("{}", "🔍 Analyzing Dependencies...".bold().cyan());
-    let output = ProcessCommand::new("cargo").arg("tree").output().unwrap();
-    let _tree_output = String::from_utf8_lossy(&output.stdout);
-    let unused = vec!["serde", "log"]; // Dummy detection
-    println!("🚨 Unused dependencies: {:?}", unused.iter().map(|dep| dep.red().to_string()).collect::<Vec<_>>());
-    println!("{}", "✅ Dependency check completed!".bold().green());
-}
+    let cargo_lock = fs::read_to_string("Cargo.lock").unwrap_or_default();
+    let cargo_toml = fs::read_to_string("Cargo.toml").unwrap_or_default();
 
-fn show_time_tracker() {
-    let stats = load_stats();
-    println!("{}", "⏳ Execution Time Tracker:".bold().cyan());
-    for (cmd, times) in stats.execution_times.iter() {
-        let avg_time: u128 = times.iter().sum::<u128>() / times.len() as u128;
-        println!("{} - Avg. time: {} ms", cmd.green(), avg_time.to_string().yellow());
+    let mut dependencies = Vec::new();
+    let mut in_dependencies_section = false;
+
+    for line in cargo_toml.lines() {
+        let trimmed = line.trim();
+
+        if trimmed.starts_with("[dependencies]") {
+            in_dependencies_section = true;
+            continue;
+        }
+        if trimmed.starts_with('[') {
+            in_dependencies_section = false;
+        }
+
+        if in_dependencies_section {
+            if let Some(dep) = trimmed.split('=').next() {
+                let dep = dep.trim();
+                if !cargo_lock.contains(dep) {
+                    dependencies.push(dep.to_string());
+                }
+            }
+        }
+    }
+
+    if dependencies.is_empty() {
+        println!("{}", "✅ No unused dependencies found!".green());
+    } else {
+        println!("{}", "🚨 Unused dependencies found:".red());
+        for dep in dependencies {
+            println!("🔹 {}", dep);
+        }
     }
 }
 
+/// Main function to parse and execute commands
 fn main() {
-    let matches = Command::new("cargo")
-        .about("🚀 Track and Optimize Cargo Usage")
-        .subcommand(Command::new("stats").about("📊 Show command usage stats"))
-        .subcommand(Command::new("log").about("📂 Show command execution log"))
-        .subcommand(Command::new("check-deps").about("🔍 Find unused dependencies"))
-        .subcommand(Command::new("time-tracker").about("⏳ Show execution time tracker"))
+    let matches = ClapCommand::new("cargo-sleek")
+        .version("1.0")
+        .author("Arunmadhavan Evr <you@example.com>")
+        .about("Tracks and analyzes your Cargo commands")
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .subcommand(ClapCommand::new("stats").about("Show command usage statistics"))
+        .subcommand(ClapCommand::new("check-deps").about("Check for unused dependencies"))
+        .allow_external_subcommands(true) // ✅ Allow passing cargo commands
         .get_matches();
-    
-    if let Some(_) = matches.subcommand_matches("stats") {
-        show_stats();
-    } else if let Some(_) = matches.subcommand_matches("log") {
-        show_log();
-    } else if let Some(_) = matches.subcommand_matches("check-deps") {
-        check_unused_deps();
-    } else if let Some(_) = matches.subcommand_matches("time-tracker") {
-        show_time_tracker();
-    } else {
-        let args: Vec<String> = std::env::args().collect();
-        if args.len() > 1 {
-            let cargo_cmd = args[1..].join(" ");
-            let start = std::time::Instant::now();
-            let mut cmd = ProcessCommand::new("cargo");
-            cmd.args(&args[1..]);
-            let output = cmd.output().expect("Failed to run cargo");
-            let duration = start.elapsed().as_millis();
-            track_command(&cargo_cmd, duration);
-            println!("{}", String::from_utf8_lossy(&output.stdout));
+
+    match matches.subcommand() {
+        Some(("stats", _)) => {
+            println!("📊 Showing stats...");
+            show_stats();
         }
+        Some(("check-deps", _)) => {
+            println!("✅ Checking dependencies...");
+            check_unused_deps();
+        }
+        Some((external, args)) => {
+            println!("🚀 Running Cargo command: cargo {}", external);
+
+            // Log the executed command
+            track_command(external);
+
+            let status = Command::new("cargo")
+    .arg(external)
+    .args(
+        args.get_many::<OsString>("") // Ensure OsString is used
+            .unwrap_or_default()
+            .map(|s| s.clone()) // Clone the OsString values
+            .collect::<Vec<_>>() // Collect into a Vec<OsString>
+    )
+    .status()
+    .expect("❌ Failed to execute command");
+
+
+            std::process::exit(status.code().unwrap_or(1));
+        }
+        _ => unreachable!(),
     }
 }
