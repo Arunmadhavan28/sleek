@@ -65,6 +65,22 @@ fn show_stats() {
     }
 }
 
+fn analyze_build_time() {
+    println!("📊 Analyzing build performance...");
+
+    let output = Command::new("cargo")
+        .arg("build")
+        .arg("--timings")
+        .output()
+        .expect("❌ Failed to execute `cargo build --timings`");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    fs::write("build_timings.log", stdout.as_bytes()).expect("❌ Failed to write build timings");
+
+    println!("✅ Build timing analysis completed! Results saved in `build_timings.log`.");
+}
+
 /// Check for unused dependencies in Cargo.toml
 fn check_unused_deps() {
     let cargo_lock = fs::read_to_string("Cargo.lock").unwrap_or_default();
@@ -114,38 +130,30 @@ fn main() {
         .arg_required_else_help(true)
         .subcommand(ClapCommand::new("stats").about("Show command usage statistics"))
         .subcommand(ClapCommand::new("check-deps").about("Check for unused dependencies"))
+        .subcommand(ClapCommand::new("build-time").about("Analyze build performance"))
         .allow_external_subcommands(true) // ✅ Allow passing cargo commands
         .get_matches();
 
-    match matches.subcommand() {
-        Some(("stats", _)) => {
-            println!("📊 Showing stats...");
-            show_stats();
-        }
-        Some(("check-deps", _)) => {
-            println!("✅ Checking dependencies...");
-            check_unused_deps();
-        }
-        Some((external, args)) => {
-            println!("🚀 Running Cargo command: cargo {}", external);
-
-            // Log the executed command
-            track_command(external);
-            let status = Command::new("cargo")
-            .arg(external)
-            .args(
-                args.get_many::<OsString>("")
-                    .unwrap_or_default()
-                    .map(|s| s.clone()) // Ensure OsString conversion
-                    .collect::<Vec<_>>() 
-            )
-            .status()
-            .expect("❌ Failed to execute command");
+        match matches.subcommand() {
+            Some(("stats", _)) => show_stats(),
+            Some(("check-deps", _)) => check_unused_deps(),
+            Some(("build-time", _)) => analyze_build_time(),
+            Some((external, args)) => {
+                println!("🚀 Running Cargo command: cargo {}", external);
+                track_command(external);
+                let status = Command::new("cargo")
+                    .arg(external)
+                    .args(
+                        args.get_many::<OsString>("")
+                            .unwrap_or_default()
+                            .map(|s| s.clone())
+                            .collect::<Vec<_>>(),
+                    )
+                    .status()
+                    .expect("❌ Failed to execute command");
         
-
-
-            std::process::exit(status.code().unwrap_or(1));
+                std::process::exit(status.code().unwrap_or(1));
+            }
+            _ => unreachable!(),
         }
-        _ => unreachable!(),
-    }
 }
