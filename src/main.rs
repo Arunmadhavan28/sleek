@@ -5,6 +5,7 @@ use std::process::Command;
 use clap::{ Command as ClapCommand};
 use colored::*;
 use std::ffi::OsString;
+use std::{time::Instant};
 
 
 const STATS_FILE: &str = "command_stats.json";
@@ -68,17 +69,41 @@ fn show_stats() {
 fn analyze_build_time() {
     println!("📊 Analyzing build performance...");
 
+    let start = Instant::now(); // Start timer
+
     let output = Command::new("cargo")
         .arg("build")
         .arg("--timings")
         .output()
         .expect("❌ Failed to execute `cargo build --timings`");
 
+    let duration = start.elapsed(); // Get total build time
+
     let stdout = String::from_utf8_lossy(&output.stdout);
 
+    // Save the full log
     fs::write("build_timings.log", stdout.as_bytes()).expect("❌ Failed to write build timings");
 
-    println!("✅ Build timing analysis completed! Results saved in `build_timings.log`.");
+    // Extract key stats
+    let slowest_tasks: Vec<&str> = stdout
+        .lines()
+        .filter(|line| line.contains("slowest"))
+        .collect();
+
+    println!("🚀 Build completed in {:.2?} seconds!", duration);
+    println!("🔎 Checking slowest dependencies...");
+
+    if slowest_tasks.is_empty() {
+        println!("✅ No slow dependencies found!");
+    } else {
+        println!("🐢 Slowest dependencies:");
+        for task in &slowest_tasks {
+            println!("  - {}", task);
+        }
+        println!("💡 Consider optimizing these dependencies or using `cargo build --release`.");
+    }
+
+    println!("✅ Build timing analysis completed! Full report saved in `build_timings.log`.");
 }
 
 /// Check for unused dependencies in Cargo.toml
