@@ -131,17 +131,17 @@ fn main() {
 
             // Log the executed command
             track_command(external);
-
             let status = Command::new("cargo")
-    .arg(external)
-    .args(
-        args.get_many::<OsString>("") // Ensure OsString is used
-            .unwrap_or_default()
-            .map(|s| s.clone()) // Clone the OsString values
-            .collect::<Vec<_>>() // Collect into a Vec<OsString>
-    )
-    .status()
-    .expect("❌ Failed to execute command");
+            .arg(external)
+            .args(
+                args.get_many::<OsString>("")
+                    .unwrap_or_default()
+                    .map(|s| s.clone()) // Ensure OsString conversion
+                    .collect::<Vec<_>>() 
+            )
+            .status()
+            .expect("❌ Failed to execute command");
+        
 
 
             std::process::exit(status.code().unwrap_or(1));
