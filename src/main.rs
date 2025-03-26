@@ -67,7 +67,7 @@ fn show_stats() {
 }
 
 fn analyze_build_time() {
-    println!("📊 Analyzing build performance...");
+    println!("📊 Analyzing build performance...\n");
 
     let start = Instant::now(); // Start timer
 
@@ -81,26 +81,24 @@ fn analyze_build_time() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // Save the full log
+    // Save full log
     fs::write("build_timings.log", stdout.as_bytes()).expect("❌ Failed to write build timings");
 
     // Extract key stats
-    let slowest_tasks: Vec<&str> = stdout
+    let slowest_task = stdout
         .lines()
         .filter(|line| line.contains("slowest"))
-        .collect();
+        .last(); // Get the slowest dependency
 
-    println!("🚀 Build completed in {:.2?} seconds!", duration);
-    println!("🔎 Checking slowest dependencies...");
+    println!("🚀 Build completed in {:.2?} seconds!\n", duration);
 
-    if slowest_tasks.is_empty() {
-        println!("✅ No slow dependencies found!");
+    if let Some(task) = slowest_task {
+        println!("🐢 **Slowest crate:** {}", task);
+        println!("💡 Try enabling incremental compilation (`CARGO_INCREMENTAL=1`).");
+        println!("💡 Use `cargo build --release` for production.");
+        println!("💡 Consider `cargo check` instead of `cargo build` for faster dev feedback.\n");
     } else {
-        println!("🐢 Slowest dependencies:");
-        for task in &slowest_tasks {
-            println!("  - {}", task);
-        }
-        println!("💡 Consider optimizing these dependencies or using `cargo build --release`.");
+        println!("✅ No slow dependencies found!\n");
     }
 
     println!("✅ Build timing analysis completed! Full report saved in `build_timings.log`.");
