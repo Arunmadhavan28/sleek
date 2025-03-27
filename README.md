@@ -107,30 +107,36 @@ MIT License
 👨‍💻 Contributing
 ```
 We welcome contributions to Cargo-Sleek! To get started:
-
-Fork the repository
 ```
+Fork the repository
+
 Create a new branch
-```git checkout -b feature-your-feature-name```
+```
+git checkout -b feature-your-feature-name
+```
 Make your changes and commit
-```git commit -m "Added new feature"```
+```
+git commit -m "Added new feature"
 Push to your branch
+```
 ```git push origin feature-your-feature-name```
+```
 Create a Pull Request on GitHub.
 ```
 Contribution Guidelines
+```
 ✅ Keep code clean and well-documented.
 ✅ Follow Rust best practices and formatting (cargo fmt).
 ✅ Test your changes before submitting (cargo test).
-
+```
 📝 Future Improvements
-
+```
 🔧 Customizable configuration file for tracking preferences.
 📊 More in-depth performance insights on Cargo builds.
 🚀 Support for benchmarking and cache optimization.
 🔄 Add automatic dependency removal for unused dependencies.
 📜 License
-
+```
 This project is dual-licensed under both Apache-2.0 and MIT, giving you the flexibility to choose the license that works best for your project.
 
 ```
