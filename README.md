@@ -20,8 +20,9 @@ Cargo-Sleek is a **lightweight, intelligent Cargo command tracking and optimizat
 
 ### 🛠 **Who is this for?**  
 
-```
+
 Cargo-Sleek is built for **Rust developers** who want to:  
+```
 ✅ Optimize their Cargo workflow by analyzing command usage patterns.  
 ✅ Keep their projects clean from unnecessary dependencies.  
 ✅ Improve compile times with build performance tracking.  
