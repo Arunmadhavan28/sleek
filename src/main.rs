@@ -146,11 +146,7 @@ mod executor {
         let mut cmd = Command::new("cargo");
         cmd.arg(command);
     
-        // Ensure we are running the user's actual project, not `cargo-sleek` itself
-        if command == "run" {
-            cmd.current_dir("..");  // Move out of cargo-sleek directory to user project
-        }
-    
+      
         // Properly pass additional arguments
         if let Some(extra_args) = args.get_many::<String>("args") {
             cmd.args(extra_args.map(|s| s.as_str()));
@@ -174,12 +170,6 @@ fn main() {
         .subcommand(ClapCommand::new("reset").about("Reset command usage statistics"))
         .subcommand(ClapCommand::new("check-deps").about("Check for unused dependencies"))
         .subcommand(ClapCommand::new("build-time").about("Analyze build performance"))
-        .subcommand(
-            ClapCommand::new("run")
-                .about("Run the project")
-                .arg(clap::Arg::new("args").num_args(1..).allow_hyphen_values(true))
-
-        )
         .subcommand(ClapCommand::new("build").about("Build the project"))
         .subcommand(ClapCommand::new("clean").about("Clean the project"))
         .get_matches();
