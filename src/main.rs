@@ -9,7 +9,7 @@ use std::time::Instant;
 
 const STATS_FILE: &str = "command_stats.json";
 
-/// **Module for command statistics tracking**
+/// Module for command statistics tracking
 mod stats {
     use super::*;
 
@@ -64,7 +64,7 @@ mod stats {
     }
 }
 
-/// **Module for performance analysis**
+/// Module for performance analysis
 mod performance {
     use super::*;
 
@@ -89,7 +89,7 @@ mod performance {
     }
 }
 
-/// **Module for dependency management**
+/// Module for dependency management
 mod dependencies {
     use super::*;
 
@@ -134,7 +134,7 @@ mod dependencies {
     }
 }
 
-/// **Module for executing external Cargo commands**
+/// Module for executing external Cargo commands
 mod executor {
     use super::*;
 
@@ -161,7 +161,7 @@ mod executor {
     
 }
 
-/// **Main function to parse and execute commands**
+/// Main function to parse and execute commands
 fn main() {
     let matches = ClapCommand::new("cargo-sleek")
         .version("1.0")
