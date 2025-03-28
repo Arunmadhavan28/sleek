@@ -1,4 +1,4 @@
 {
-  "cargo clean": 1,
-  "cargo build": 1
+  "cargo build": 1,
+  "cargo clean": 1
 }
