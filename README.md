@@ -151,6 +151,6 @@ Join discussions in the community forums.
 Give the project a star ⭐ on GitHub and help spread the word!
 
 🚀 Happy Coding with Rust! 🦀
-
+```
 
 ---
