@@ -2,8 +2,7 @@ use clap::{ArgMatches, Command as ClapCommand};
 use colored::*;
 use serde_json;
 use std::collections::HashMap;
-use std::fs::{self, File};
-use std::io::BufReader;
+use std::fs;
 use std::process::Command;
 use std::time::Instant;
 
@@ -15,14 +14,34 @@ mod stats {
 
     /// Load command statistics from `command_stats.json`
     pub fn load_stats() -> HashMap<String, u32> {
-        let mut stats = HashMap::new();
-        if let Ok(file) = File::open(STATS_FILE) {
-            let reader = BufReader::new(file);
-            if let Ok(data) = serde_json::from_reader(reader) {
-                stats = data;
+        if let Ok(file) = fs::File::open(STATS_FILE) {
+            let reader = std::io::BufReader::new(file);
+            if let Ok(stats) = serde_json::from_reader(reader) {
+                return stats;
             }
         }
-        stats
+        HashMap::new()
+    }
+
+    /// Show the most used Cargo commands
+    pub fn show_stats() {
+        let stats = load_stats();
+        if stats.is_empty() {
+            println!("{}", "📊 No command usage data available.".yellow());
+            return;
+        }
+
+        println!("{}", "📊 Most Used Cargo Commands:".bold().cyan());
+
+        let mut sorted_stats: Vec<(&String, &u32)> = stats.iter().collect();
+        sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
+
+        println!("{:<4} {:<15} {:>6}", "#", "Command", "Count");
+        println!("{}", "-".repeat(30));
+
+        for (i, (command, count)) in sorted_stats.iter().enumerate() {
+            println!("{:<4} {:<15} {:>6}", i + 1, command.green().bold(), count);
+        }
     }
 
     /// Save command statistics to `command_stats.json`
@@ -40,27 +59,14 @@ mod stats {
         save_stats(&stats);
     }
 
-    /// Show the most frequently used Cargo commands
-    pub fn show_stats() {
-        let stats = load_stats();
-        if stats.is_empty() {
-            println!("{}", "📊 No command usage data available.".yellow());
-            return;
-        }
-
-        println!("{}", "📊 Most Used Cargo Commands:".bold().cyan());
-        let mut sorted_stats: Vec<(&String, &u32)> = stats.iter().collect();
-        sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
-
-        for (i, (command, count)) in sorted_stats.iter().enumerate() {
-            println!("{}️⃣ {} ({} times)", i + 1, command.green().bold(), count);
-        }
-    }
-
     /// Reset statistics
-    pub fn reset_stats() {
-        fs::write(STATS_FILE, "{}").expect("❌ Failed to reset stats file");
-        println!("✅ Command stats have been reset!");
+    pub fn reset_stats(args: &ArgMatches) {
+        if args.get_flag("force") {
+            fs::write(STATS_FILE, "{}").expect("❌ Failed to reset stats file");
+            println!("✅ Command stats have been reset!");
+        } else {
+            println!("⚠️ Are you sure? Run with `cargo sleek reset --force` to confirm.");
+        }
     }
 }
 
@@ -73,19 +79,26 @@ mod performance {
         println!("📊 Analyzing build performance...\n");
         let start = Instant::now();
 
-        let output = Command::new("cargo")
+        let status = Command::new("cargo")
             .arg("build")
             .arg("--timings")
-            .output()
+            .status()
             .expect("❌ Failed to execute `cargo build --timings`");
 
         let duration = start.elapsed();
-        let stdout = String::from_utf8_lossy(&output.stdout);
 
-        fs::write("build_timings.log", stdout.as_bytes()).expect("❌ Failed to write build timings");
+        if status.success() {
+            println!("🚀 Build completed in {:.2?} seconds!", duration);
+            println!("✅ Timing report saved in `target/cargo-timings/`.");
 
-        println!("🚀 Build completed in {:.2?} seconds!\n", duration);
-        println!("✅ Build timing analysis completed! Full report saved in `build_timings.log`.");
+            // Optionally open the report in the default browser (for Linux/macOS)
+            #[cfg(target_os = "linux")]
+            Command::new("xdg-open").arg("target/cargo-timings").spawn().ok();
+            #[cfg(target_os = "macos")]
+            Command::new("open").arg("target/cargo-timings").spawn().ok();
+        } else {
+            println!("❌ Build failed. Check the logs for details.");
+        }
     }
 }
 
@@ -142,23 +155,21 @@ mod executor {
     pub fn execute_cargo_command(command: &str, args: &ArgMatches) {
         println!("🚀 Running Cargo command: cargo {}", command);
         stats::track_command(command);
-    
+
         let mut cmd = Command::new("cargo");
         cmd.arg(command);
-    
-      
+
         // Properly pass additional arguments
         if let Some(extra_args) = args.get_many::<String>("args") {
             cmd.args(extra_args.map(|s| s.as_str()));
         }
-    
+
         let status = cmd.status().expect("❌ Failed to execute command");
-    
+
         if !status.success() {
             println!("❌ Command failed with exit code: {:?}", status.code());
         }
     }
-    
 }
 
 /// Main function to parse and execute commands
@@ -167,16 +178,21 @@ fn main() {
         .version("1.0")
         .about("Tracks and analyzes your Cargo commands")
         .subcommand(ClapCommand::new("stats").about("Show command usage statistics"))
-        .subcommand(ClapCommand::new("reset").about("Reset command usage statistics"))
+        .subcommand(
+            ClapCommand::new("reset")
+                .about("Reset command usage statistics")
+                .arg(clap::Arg::new("force").long("force").help("Force reset stats")),
+        )
         .subcommand(ClapCommand::new("check-deps").about("Check for unused dependencies"))
         .subcommand(ClapCommand::new("build-time").about("Analyze build performance"))
         .subcommand(ClapCommand::new("build").about("Build the project"))
         .subcommand(ClapCommand::new("clean").about("Clean the project"))
+        .subcommand(ClapCommand::new("run").about("Run the project"))
         .get_matches();
 
     match matches.subcommand() {
         Some(("stats", _)) => stats::show_stats(),
-        Some(("reset", _)) => stats::reset_stats(),
+        Some(("reset", sub_matches)) => stats::reset_stats(sub_matches),
         Some(("check-deps", _)) => dependencies::check_unused_deps(),
         Some(("build-time", _)) => performance::analyze_build_time(),
         Some(("run", sub_matches)) => executor::execute_cargo_command("run", sub_matches),
