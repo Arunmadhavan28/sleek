@@ -8,6 +8,12 @@ Cargo-Sleek is a **lightweight, intelligent Cargo command tracking and optimizat
 
 ---
 
+## ☕ Support My Work
+
+[![Patreon](https://img.shields.io/badge/Support-Patreon-orange?logo=patreon)](https://patreon.com/Arunmadhavan28)  
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-yellow?logo=buymeacoffee)](https://buymeacoffee.com/arunmadhavh)
+
+
 ## 🎯 **Why Cargo-Sleek?**  
 
 ### ✅ **Unique Features**  
