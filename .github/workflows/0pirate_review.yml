@@ -1,0 +1,19 @@
+name: 0pirate Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run 0pirate Security Review
+        uses: 0pirate/0pirate-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          opirate-action-token: ${{ secrets.OPIRATE_ACTION_TOKEN }}
+          opirate-api-key-name: ${{ secrets.OPIRATE_API_KEY_NAME }}
