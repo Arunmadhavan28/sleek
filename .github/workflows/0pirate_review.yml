@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run 0pirate Security Review
-        uses: 0pirate/0pirate-action@v1
+        uses: ./0pirate-action
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           opirate-action-token: ${{ secrets.OPIRATE_ACTION_TOKEN }}
