@@ -129,6 +129,15 @@ Push to your branch
 ```
 Create a Pull Request on GitHub.
 ```
+```
+🪄 Example Output
+📊 Top 5 Cargo Commands
+1. build       → 48 times
+2. run         → 31 times
+3. test        → 12 times
+4. check       → 8 times
+5. clean       → 3 times
+```
 Contribution Guidelines
 ```
 ✅ Keep code clean and well-documented.
