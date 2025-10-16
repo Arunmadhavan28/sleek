@@ -6,30 +6,40 @@ authors = ["Arunmadhavan Evr"]
 description = "🚀 A sleek CLI tool to track and optimize Cargo commands."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Arunmadhavan28/sleek"
-keywords = ["cargo", "cli", "tracking", "rust"]
 categories = ["development-tools", "command-line-utilities"]
 readme = "README.md"
+homepage = "https://github.com/Arunmadhavan28/sleek"
+documentation = "https://docs.rs/cargo-sleek"
 
 [[bin]]
 name = "cargo-sleek"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4.0", features = ["derive"] }
-colored = "2.0"
+# CLI & Argument parsing
+clap = { version = "4.5", features = ["derive"] }
+
+# Colored terminal output
+colored = "2.1"
+
+# Serialization
 serde = { version = "1.0", features = ["derive"] }
-toml = "0.7"
+serde_json = "1.0"
+
+# Error handling
+anyhow = "1.0"
+
+# Time & date formatting
 chrono = "0.4"
-serde_json = "1.0.140"
+
+# Optional: Only needed if you plan to parse Cargo.toml deeply later
+# toml = "0.8"
 
 [profile.dev]
 debug = true
 
-
-[build-dependencies]
-cargo_metadata = "0.15"
-
 [profile.release]
-strip = true
-lto = true
-opt-level = "z"
+opt-level = "z"        # Optimize for size
+strip = true           # Strip symbols from binary
+lto = true             # Link Time Optimization
+codegen-units = 1      # Better optimization across crate
