@@ -27,6 +27,6 @@ jobs:
       - name: Run 0pirate Security Review
         uses: ./0pirate-action # This now points to the folder from Step 2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
           opirate-action-token: ${{ secrets.OPIRATE_ACTION_TOKEN }}
           opirate-api-key-name: ${{ secrets.OPIRATE_API_KEY_NAME }}
