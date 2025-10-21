@@ -25,8 +25,8 @@ jobs:
 
       # Step 3: Run the action from the local subfolder we just created
       - name: Run 0pirate Security Review
-        uses: ./0pirate-action # This now points to the folder from Step 2
+        uses: ./0pirate-action
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }} # <-- This is the new, correct name
           opirate-action-token: ${{ secrets.OPIRATE_ACTION_TOKEN }}
           opirate-api-key-name: ${{ secrets.OPIRATE_API_KEY_NAME }}
