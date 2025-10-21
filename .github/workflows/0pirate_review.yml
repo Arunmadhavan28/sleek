@@ -11,8 +11,21 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
+      # Step 1: Check out the main 'sleek' repository's code
+      - name: Checkout Sleek Repo
+        uses: actions/checkout@v4
+
+      # Step 2: Check out your '0pirate-action' repository into a subfolder
+      # (I'm assuming the action's repository name is '0pirate-action')
+      - name: Checkout 0pirate Action Code
+        uses: actions/checkout@v4
+        with:
+          repository: Arunmadhavan28/0pirate-action
+          path: 0pirate-action
+
+      # Step 3: Run the action from the local subfolder we just created
       - name: Run 0pirate Security Review
-        uses: ./0pirate-action
+        uses: ./0pirate-action # This now points to the folder from Step 2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           opirate-action-token: ${{ secrets.OPIRATE_ACTION_TOKEN }}
