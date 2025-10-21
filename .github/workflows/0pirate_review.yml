@@ -25,7 +25,6 @@ jobs:
       - name: Run 0pirate Security Review
         uses: ./0pirate-action
         with:
-          # Ensure these lines match exactly
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }} # <-- This is the new, correct name
           opirate-action-token: ${{ secrets.OPIRATE_ACTION_TOKEN }}
           opirate-api-key-name: ${{ secrets.OPIRATE_API_KEY_NAME }}
