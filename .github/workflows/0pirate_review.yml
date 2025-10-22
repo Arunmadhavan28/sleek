@@ -24,14 +24,7 @@ jobs:
           repository: Arunmadhavan28/0pirate-action
           path: 0pirate-action
 
-      # --- ADD THIS NEW DEBUGGING STEP ---
-      - name: Debug - Verify Token
-        run: |
-          echo "Verifying the action token..."
-          echo "Token from secrets ends with: ${{ secrets.OPIRATE_ACTION_TOKEN_V2.slice(-4) }}"
-      # --- END OF NEW STEP ---
-
-      # Step 3: Run the action
+      # Step 3: Run the action (now using the V2 token)
       - name: Run 0pirate Security Review
         uses: ./0pirate-action
         with:
