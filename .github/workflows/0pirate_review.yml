@@ -14,19 +14,27 @@ jobs:
       # Step 1: Check out the main 'sleek' repository's code
       - name: Checkout Sleek Repo
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
-      # Step 2: Check out your '0pirate-action' repository into a subfolder
-      # (I'm assuming the action's repository name is '0pirate-action')
+      # Step 2: Check out your '0pirate-action' repository
       - name: Checkout 0pirate Action Code
         uses: actions/checkout@v4
         with:
           repository: Arunmadhavan28/0pirate-action
           path: 0pirate-action
 
-      # Step 3: Run the action from the local subfolder we just created
+      # --- ADD THIS NEW DEBUGGING STEP ---
+      - name: Debug - Verify Token
+        run: |
+          echo "Verifying the action token..."
+          echo "Token from secrets ends with: ${{ secrets.OPIRATE_ACTION_TOKEN_V2.slice(-4) }}"
+      # --- END OF NEW STEP ---
+
+      # Step 3: Run the action
       - name: Run 0pirate Security Review
         uses: ./0pirate-action
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }} # <-- This is the new, correct name
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
           opirate-action-token: ${{ secrets.OPIRATE_ACTION_TOKEN_V2 }}
           opirate-api-key-name: ${{ secrets.OPIRATE_API_KEY_NAME }}
