@@ -31,3 +31,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           opirate-action-token: ${{ secrets.OPIRATE_ACTION_TOKEN_V2 }}
           opirate-api-key-name: ${{ secrets.OPIRATE_API_KEY_NAME }}
+          opirate-api-url: ${{ secrets.OPIRATE_API_URL }}
+          opirate-provider: ${{ secrets.OPIRATE_PROVIDER }}
+          opirate-model: ${{ secrets.OPIRATE_MODEL }}
+
