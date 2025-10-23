@@ -1,20 +1,33 @@
-use clap::{ArgMatches, Command as ClapCommand};
+use clap::{Arg, ArgMatches, Command as ClapCommand};
 use colored::*;
+use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
 use std::fs;
+use std::path::Path;
 use std::process::Command;
-use std::time::Instant;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use anyhow::{Context, Result};
 
 const STATS_FILE: &str = "command_stats.json";
 
-/// Module for command statistics tracking
+#[derive(Serialize, Deserialize, Debug, Default)]
+struct CommandStats {
+    usage_count: u32,
+    last_used: u64,
+}
+
+/// -------------------- MODULE: stats --------------------
 mod stats {
     use super::*;
+    use chrono::NaiveDateTime;
 
-    /// Load command statistics from `command_stats.json`
-    pub fn load_stats() -> HashMap<String, u32> {
-        if let Ok(file) = fs::File::open(STATS_FILE) {
+    pub fn load_stats() -> HashMap<String, CommandStats> {
+        if !Path::new(STATS_FILE).exists() {
+            return HashMap::new();
+        }
+        let file = fs::File::open(STATS_FILE).ok();
+        if let Some(file) = file {
             let reader = std::io::BufReader::new(file);
             if let Ok(stats) = serde_json::from_reader(reader) {
                 return stats;
@@ -23,59 +36,71 @@ mod stats {
         HashMap::new()
     }
 
-    /// Show the most used Cargo commands
-    pub fn show_stats() {
+    pub fn save_stats(stats: &HashMap<String, CommandStats>) -> Result<()> {
+        let json = serde_json::to_string_pretty(stats)?;
+        fs::write(STATS_FILE, json).context("Failed to write stats file")
+    }
+
+    pub fn track_command(command: &str) -> Result<()> {
+        let mut stats = load_stats();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let entry = stats.entry(command.to_string()).or_default();
+        entry.usage_count += 1;
+        entry.last_used = now;
+
+        save_stats(&stats)?;
+        Ok(())
+    }
+
+    pub fn show_stats() -> Result<()> {
         let stats = load_stats();
         if stats.is_empty() {
             println!("{}", "📊 No command usage data available.".yellow());
-            return;
+            return Ok(());
         }
+
+        let mut sorted: Vec<_> = stats.iter().collect();
+        sorted.sort_by(|a, b| b.1.usage_count.cmp(&a.1.usage_count));
 
         println!("{}", "📊 Most Used Cargo Commands:".bold().cyan());
+        println!("{:<4} {:<20} {:>8} {:>20}", "#", "Command", "Count", "Last Used");
 
-        let mut sorted_stats: Vec<(&String, &u32)> = stats.iter().collect();
-        sorted_stats.sort_by(|a, b| b.1.cmp(a.1));
+        for (i, (cmd, data)) in sorted.iter().enumerate() {
+            let last_used = NaiveDateTime::from_timestamp_opt(data.last_used as i64, 0)
+                .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                .unwrap_or_else(|| "N/A".to_string());
 
-        println!("{:<4} {:<15} {:>6}", "#", "Command", "Count");
-        println!("{}", "-".repeat(30));
-
-        for (i, (command, count)) in sorted_stats.iter().enumerate() {
-            println!("{:<4} {:<15} {:>6}", i + 1, command.green().bold(), count);
+            println!(
+                "{:<4} {:<20} {:>8} {:>20}",
+                i + 1,
+                cmd.green().bold(),
+                data.usage_count,
+                last_used
+            );
         }
+        Ok(())
     }
 
-    /// Save command statistics to `command_stats.json`
-    pub fn save_stats(stats: &HashMap<String, u32>) {
-        if let Ok(json) = serde_json::to_string_pretty(stats) {
-            fs::write(STATS_FILE, json).expect("❌ Failed to write stats file");
-        }
-    }
-
-    /// Track executed commands
-    pub fn track_command(command: &str) {
-        let mut stats = load_stats();
-        let full_command = format!("cargo {}", command);
-        *stats.entry(full_command).or_insert(0) += 1;
-        save_stats(&stats);
-    }
-
-    /// Reset statistics
-    pub fn reset_stats(args: &ArgMatches) {
+    pub fn reset_stats(args: &ArgMatches) -> Result<()> {
         if args.get_flag("force") {
-            fs::write(STATS_FILE, "{}").expect("❌ Failed to reset stats file");
+            fs::write(STATS_FILE, "{}")?;
             println!("✅ Command stats have been reset!");
         } else {
-            println!("⚠️ Are you sure? Run with `cargo sleek reset --force` to confirm.");
+            println!("⚠️ Run with `cargo sleek reset --force` to confirm.");
         }
+        Ok(())
     }
 }
 
-/// Module for performance analysis
+/// -------------------- MODULE: performance --------------------
 mod performance {
     use super::*;
 
-    /// Analyze Cargo build performance
-    pub fn analyze_build_time() {
+    pub fn analyze_build_time(verbose: bool) -> Result<()> {
         println!("📊 Analyzing build performance...\n");
         let start = Instant::now();
 
@@ -83,123 +108,137 @@ mod performance {
             .arg("build")
             .arg("--timings")
             .status()
-            .expect("❌ Failed to execute `cargo build --timings`");
+            .context("Failed to execute cargo build --timings")?;
 
         let duration = start.elapsed();
 
         if status.success() {
-            println!("🚀 Build completed in {:.2?} seconds!", duration);
-            println!("✅ Timing report saved in `target/cargo-timings/`.");
-
-            // Optionally open the report in the default browser (for Linux/macOS)
-            #[cfg(target_os = "linux")]
-            Command::new("xdg-open").arg("target/cargo-timings").spawn().ok();
-            #[cfg(target_os = "macos")]
-            Command::new("open").arg("target/cargo-timings").spawn().ok();
+            let size = fs::metadata("target/debug")
+                .map(|m| m.len() / 1024)
+                .unwrap_or_default();
+            println!("🚀 Build completed in {:.2?}", duration);
+            println!("📦 Approx. build size: {} KB", size);
+            if verbose {
+                println!("🕓 Timing report saved in `target/cargo-timings/`");
+            }
         } else {
-            println!("❌ Build failed. Check the logs for details.");
+            println!("❌ Build failed. Check logs for details.");
         }
+
+        Ok(())
     }
 }
 
-/// Module for dependency management
+/// -------------------- MODULE: dependencies --------------------
 mod dependencies {
     use super::*;
 
-    /// Check for unused dependencies in Cargo.toml
-    pub fn check_unused_deps() {
+    pub fn check_unused_deps() -> Result<()> {
         println!("🔍 Checking unused dependencies...");
+        let cargo_toml = fs::read_to_string("Cargo.toml").context("Failed to read Cargo.toml")?;
         let cargo_lock = fs::read_to_string("Cargo.lock").unwrap_or_default();
-        let cargo_toml = fs::read_to_string("Cargo.toml").unwrap_or_default();
 
-        let mut dependencies = Vec::new();
-        let mut in_dependencies_section = false;
+        let mut unused = vec![];
+        let mut in_deps = false;
 
         for line in cargo_toml.lines() {
             let trimmed = line.trim();
 
             if trimmed.starts_with("[dependencies]") {
-                in_dependencies_section = true;
+                in_deps = true;
                 continue;
             }
             if trimmed.starts_with('[') {
-                in_dependencies_section = false;
+                in_deps = false;
             }
 
-            if in_dependencies_section {
+            if in_deps {
                 if let Some(dep) = trimmed.split('=').next() {
                     let dep = dep.trim();
                     if !cargo_lock.contains(dep) {
-                        dependencies.push(dep.to_string());
+                        unused.push(dep.to_string());
                     }
                 }
             }
         }
 
-        if dependencies.is_empty() {
+        if unused.is_empty() {
             println!("{}", "✅ No unused dependencies found!".green());
         } else {
             println!("{}", "🚨 Unused dependencies found:".red());
-            for dep in dependencies {
-                println!("🔹 {}", dep);
+            for dep in unused {
+                println!("   • {}", dep);
             }
         }
+        Ok(())
     }
 }
 
-/// Module for executing external Cargo commands
+/// -------------------- MODULE: executor --------------------
 mod executor {
     use super::*;
 
-    /// Execute unknown Cargo commands
-    pub fn execute_cargo_command(command: &str, args: &ArgMatches) {
-        println!("🚀 Running Cargo command: cargo {}", command);
-        stats::track_command(command);
+    pub fn execute_cargo_command(command: &str, args: &ArgMatches, verbose: bool) -> Result<()> {
+        println!("🚀 Running Cargo command: {}", command.bold().cyan());
+        stats::track_command(command)?;
 
         let mut cmd = Command::new("cargo");
         cmd.arg(command);
 
-        // Properly pass additional arguments
         if let Some(extra_args) = args.get_many::<String>("args") {
             cmd.args(extra_args.map(|s| s.as_str()));
         }
 
-        let status = cmd.status().expect("❌ Failed to execute command");
+        if verbose {
+            println!("🔧 Executing: {:?}", cmd);
+        }
 
+        let status = cmd.status().context("Failed to execute cargo command")?;
         if !status.success() {
             println!("❌ Command failed with exit code: {:?}", status.code());
         }
+
+        Ok(())
     }
 }
 
-/// Main function to parse and execute commands
-fn main() {
+/// -------------------- MAIN --------------------
+fn main() -> Result<()> {
     let matches = ClapCommand::new("cargo-sleek")
-        .version("1.0")
-        .about("Tracks and analyzes your Cargo commands")
+        .version("1.1")
+        .about("Tracks, analyzes, and optimizes your Cargo workflow 🚀")
+        .arg(
+            Arg::new("verbose")
+                .long("verbose")
+                .short('v')
+                .help("Enable verbose logging")
+                .global(true),
+        )
         .subcommand(ClapCommand::new("stats").about("Show command usage statistics"))
         .subcommand(
             ClapCommand::new("reset")
-                .about("Reset command usage statistics")
-                .arg(clap::Arg::new("force").long("force").help("Force reset stats")),
+                .about("Reset usage statistics")
+                .arg(Arg::new("force").long("force").help("Force reset stats")),
         )
         .subcommand(ClapCommand::new("check-deps").about("Check for unused dependencies"))
         .subcommand(ClapCommand::new("build-time").about("Analyze build performance"))
-        .subcommand(ClapCommand::new("build").about("Build the project"))
-        .subcommand(ClapCommand::new("clean").about("Clean the project"))
+        .subcommand(ClapCommand::new("build").about("Run cargo build"))
+        .subcommand(ClapCommand::new("clean").about("Run cargo clean"))
         .subcommand(ClapCommand::new("run").about("Run the project"))
         .get_matches();
 
+    let verbose = matches.get_flag("verbose");
+
     match matches.subcommand() {
-        Some(("stats", _)) => stats::show_stats(),
-        Some(("reset", sub_matches)) => stats::reset_stats(sub_matches),
-        Some(("check-deps", _)) => dependencies::check_unused_deps(),
-        Some(("build-time", _)) => performance::analyze_build_time(),
-        Some(("run", sub_matches)) => executor::execute_cargo_command("run", sub_matches),
-        Some(("build", sub_matches)) => executor::execute_cargo_command("build", sub_matches),
-        Some(("clean", sub_matches)) => executor::execute_cargo_command("clean", sub_matches),
-        _ => {
-            println!("❌ Unknown command. Use `cargo-sleek --help`.");
-        }
+        Some(("stats", _)) => stats::show_stats()?,
+        Some(("reset", sub)) => stats::reset_stats(sub)?,
+        Some(("check-deps", _)) => dependencies::check_unused_deps()?,
+        Some(("build-time", _)) => performance::analyze_build_time(verbose)?,
+        Some(("run", sub)) => executor::execute_cargo_command("run", sub, verbose)?,
+        Some(("build", sub)) => executor::execute_cargo_command("build", sub, verbose)?,
+        Some(("clean", sub)) => executor::execute_cargo_command("clean", sub, verbose)?,
+        _ => println!("❌ Unknown command. Use `cargo sleek --help`."),
     }
+
+    Ok(())
 }

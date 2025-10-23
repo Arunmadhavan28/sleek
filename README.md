@@ -8,6 +8,8 @@ Cargo-Sleek is a **lightweight, intelligent Cargo command tracking and optimizat
 
 ---
 
+
+
 ## ☕ Support My Work
 
 [![Patreon](https://img.shields.io/badge/Support-Patreon-orange?logo=patreon)](https://patreon.com/Arunmadhavan28)  
@@ -128,6 +130,15 @@ Push to your branch
 ```git push origin feature-your-feature-name```
 ```
 Create a Pull Request on GitHub.
+```
+```
+🪄 Example Output
+📊 Top 5 Cargo Commands
+1. build       → 48 times
+2. run         → 31 times
+3. test        → 12 times
+4. check       → 8 times
+5. clean       → 3 times
 ```
 Contribution Guidelines
 ```

@@ -24,12 +24,13 @@ jobs:
           repository: Arunmadhavan28/0pirate-action
           path: 0pirate-action
 
-      # Step 3: Run the action (now using the V2 token)
+      # Step 3: Run the action from the local subfolder
       - name: Run 0pirate Security Review
         uses: ./0pirate-action
         with:
+          # --- THIS IS THE CRITICAL SECTION ---
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          opirate-action-token: ${{ secrets.OPIRATE_ACTION_TOKEN_V2 }}
+          opirate-action-token: ${{ secrets.OPIRATE_ACTION_TOKEN }}
           opirate-api-key-name: ${{ secrets.OPIRATE_API_KEY_NAME }}
           opirate-api-url: ${{ secrets.OPIRATE_API_URL }}
           opirate-provider: ${{ secrets.OPIRATE_PROVIDER }}
